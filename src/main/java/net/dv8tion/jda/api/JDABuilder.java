@@ -92,9 +92,18 @@ public class JDABuilder
     protected ChunkingFilter chunkingFilter = ChunkingFilter.ALL;
     protected MemberCachePolicy memberCachePolicy = MemberCachePolicy.ALL;
     protected GatewayEncoding encoding = GatewayEncoding.JSON;
+    protected AccountType accountType = null;
+
+    private JDABuilder(@Nullable AccountType accountType, @Nullable String token, int intents)
+    {
+        this.accountType = accountType;
+        this.token = token;
+        this.intents = 1 | intents;
+    }
 
     private JDABuilder(@Nullable String token, int intents)
     {
+        this.accountType = AccountType.BOT;
         this.token = token;
         this.intents = 1 | intents;
     }
@@ -123,6 +132,13 @@ public class JDABuilder
     public static JDABuilder createDefault(@Nullable String token)
     {
         return new JDABuilder(token, GatewayIntent.DEFAULT).applyDefault();
+    }
+
+    @Nonnull
+    @CheckReturnValue
+    public static JDABuilder createDefault(@Nullable AccountType accountType, @Nullable String token)
+    {
+        return new JDABuilder(accountType, token, GatewayIntent.DEFAULT).applyDefault();
     }
 
     /**
@@ -168,6 +184,15 @@ public class JDABuilder
         return createDefault(token, EnumSet.of(intent, intents));
     }
 
+    @Nonnull
+    @CheckReturnValue
+    public static JDABuilder createDefault(@Nullable AccountType accountType, @Nullable String token, @Nonnull GatewayIntent intent, @Nonnull GatewayIntent... intents)
+    {
+        Checks.notNull(intent, "GatewayIntent");
+        Checks.noneNull(intents, "GatewayIntent");
+        return createDefault(accountType, token, EnumSet.of(intent, intents));
+    }
+
     /**
      * Creates a JDABuilder with recommended default settings.
      * <br>Note that these defaults can potentially change in the future.
@@ -205,6 +230,13 @@ public class JDABuilder
     public static JDABuilder createDefault(@Nullable String token, @Nonnull Collection<GatewayIntent> intents)
     {
         return create(token, intents).applyDefault();
+    }
+
+    @Nonnull
+    @CheckReturnValue
+    public static JDABuilder createDefault(@Nullable AccountType accountType, @Nullable String token, @Nonnull Collection<GatewayIntent> intents)
+    {
+        return create(accountType, token, intents).applyDefault();
     }
 
     private JDABuilder applyDefault()
@@ -428,6 +460,13 @@ public class JDABuilder
         return new JDABuilder(token, GatewayIntent.getRaw(intent, intents)).applyIntents();
     }
 
+    @Nonnull
+    @CheckReturnValue
+    public static JDABuilder create(@Nullable AccountType accountType, @Nullable String token, @Nonnull GatewayIntent intent, @Nonnull GatewayIntent... intents)
+    {
+        return new JDABuilder(accountType, token, GatewayIntent.getRaw(intent, intents)).applyIntents();
+    }
+
     /**
      * Creates a JDABuilder with the predefined token.
      *
@@ -457,6 +496,13 @@ public class JDABuilder
     public static JDABuilder create(@Nullable String token, @Nonnull Collection<GatewayIntent> intents)
     {
         return new JDABuilder(token, GatewayIntent.getRaw(intents)).applyIntents();
+    }
+
+    @Nonnull
+    @CheckReturnValue
+    public static JDABuilder create(@Nullable AccountType accountType, @Nullable String token, @Nonnull Collection<GatewayIntent> intents)
+    {
+        return new JDABuilder(accountType, token, GatewayIntent.getRaw(intents)).applyIntents();
     }
 
     private JDABuilder applyIntents()
@@ -1747,7 +1793,7 @@ public class JDABuilder
         if (controller == null && shardInfo != null)
             controller = new ConcurrentSessionController();
 
-        AuthorizationConfig authConfig = new AuthorizationConfig(token);
+        AuthorizationConfig authConfig = new AuthorizationConfig(accountType, token);
         ThreadingConfig threadingConfig = new ThreadingConfig();
         threadingConfig.setCallbackPool(callbackPool, shutdownCallbackPool);
         threadingConfig.setGatewayPool(mainWsPool, shutdownMainWsPool);

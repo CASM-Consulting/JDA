@@ -84,10 +84,7 @@ import org.slf4j.MDC;
 import javax.annotation.Nonnull;
 import javax.security.auth.login.LoginException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 public class JDAImpl implements JDA
@@ -132,7 +129,8 @@ public class JDAImpl implements JDA
     protected String gatewayUrl;
     protected ChunkingFilter chunkingFilter;
 
-    protected String clientId = null,  requiredScopes = "bot";
+    protected String clientId;
+    protected String requiredScopes;
     protected ShardManager shardManager = null;
     protected MemberCachePolicy memberCachePolicy = MemberCachePolicy.ALL;
 
@@ -357,32 +355,102 @@ public class JDAImpl implements JDA
         }
     }
 
-    public void verifyToken() throws LoginException
-    {
-        RestActionImpl<DataObject> login = new RestActionImpl<DataObject>(this, Route.Self.GET_SELF.compile())
-        {
-            @Override
-            public void handleResponse(Response response, Request<DataObject> request)
-            {
-                if (response.isOk())
-                    request.onSuccess(response.getObject());
-                else if (response.isRateLimit())
-                    request.onFailure(new RateLimitedException(request.getRoute(), response.retryAfter));
-                else if (response.code == 401)
-                    request.onSuccess(null);
-                else
-                    request.onFailure(response);
-            }
-        }.priority();
+//    public void verifyToken() throws LoginException
+//    {
+//        RestActionImpl<DataObject> login = new RestActionImpl<DataObject>(this, Route.Self.GET_SELF.compile())
+//        {
+//            @Override
+//            public void handleResponse(Response response, Request<DataObject> request)
+//            {
+//                if (response.isOk())
+//                    request.onSuccess(response.getObject());
+//                else if (response.isRateLimit())
+//                    request.onFailure(new RateLimitedException(request.getRoute(), response.retryAfter));
+//                else if (response.code == 401)
+//                    request.onSuccess(null);
+//                else
+//                    request.onFailure(response);
+//            }
+//        }.priority();
+//
+//        DataObject userResponse = login.complete();
+//        if (userResponse != null)
+//        {
+//            getEntityBuilder().createSelfUser(userResponse);
+//            return;
+//        }
+//        shutdownNow();
+//        throw new LoginException("The provided token is invalid!");
+//    }
 
-        DataObject userResponse = login.complete();
-        if (userResponse != null)
-        {
-            getEntityBuilder().createSelfUser(userResponse);
-            return;
+    public void verifyToken() throws LoginException {
+        this.verifyToken(false);
+    }
+
+    public void verifyToken(boolean alreadyFailed) throws LoginException {
+        RestActionImpl<DataObject> login = new RestActionImpl<DataObject>(this, Route.Self.GET_SELF.compile(new String[0])) {
+            public void handleResponse(Response response, Request<DataObject> request) {
+                if (response.isOk()) {
+                    request.onSuccess(response.getObject());
+                } else if (response.isRateLimit()) {
+                    request.onFailure(new RateLimitedException(request.getRoute(), response.retryAfter));
+                } else if (response.code == 401) {
+                    request.onSuccess(null);
+                } else {
+                    request.onFailure(new LoginException("When verifying the authenticity of the provided token, Discord returned an unknown response:\n" + response.toString()));
+                }
+
+            }
+        };
+        DataObject userResponse;
+        if (!alreadyFailed) {
+            userResponse = this.checkToken(login);
+            if (userResponse != null) {
+                this.verifyAccountType(userResponse);
+                this.getEntityBuilder().createSelfUser(userResponse);
+                return;
+            }
         }
-        shutdownNow();
-        throw new LoginException("The provided token is invalid!");
+
+        if (this.getAccountType() == AccountType.BOT) {
+            String token = this.getToken().substring("Bot ".length());
+            this.requester = new Requester(this, new AuthorizationConfig(AccountType.CLIENT, token));
+        } else {
+            this.requester = new Requester(this, new AuthorizationConfig(AccountType.BOT, this.getToken()));
+        }
+
+        userResponse = this.checkToken(login);
+        this.shutdownNow();
+        if (userResponse != null) {
+            this.verifyAccountType(userResponse);
+        } else {
+            throw new LoginException("The provided token is invalid!");
+        }
+    }
+
+    private void verifyAccountType(DataObject userResponse) {
+        if (this.getAccountType() == AccountType.BOT) {
+            if (!userResponse.hasKey("bot") || !userResponse.getBoolean("bot")) {
+                throw new AccountTypeException(AccountType.BOT, "Attempted to login as a BOT with a CLIENT token!");
+            }
+        } else if (userResponse.hasKey("bot") && userResponse.getBoolean("bot")) {
+            throw new AccountTypeException(AccountType.CLIENT, "Attempted to login as a CLIENT with a BOT token!");
+        }
+
+    }
+
+    private DataObject checkToken(RestActionImpl<DataObject> login) throws LoginException {
+        try {
+            DataObject userResponse = (DataObject)login.complete();
+            return userResponse;
+        } catch (RuntimeException var5) {
+            Throwable ex = var5.getCause() instanceof ExecutionException ? var5.getCause().getCause() : null;
+            if (ex instanceof LoginException) {
+                throw new LoginException(ex.getMessage());
+            } else {
+                throw var5;
+            }
+        }
     }
 
     public AuthorizationConfig getAuthorizationConfig()
@@ -976,21 +1044,21 @@ public class JDAImpl implements JDA
         });
     }
 
-    @Nonnull
-    @Override
-    public JDA setRequiredScopes(@Nonnull Collection<String> scopes)
-    {
-        Checks.noneNull(scopes, "Scopes");
-        this.requiredScopes = String.join("+", scopes);
-        if (!requiredScopes.contains("bot"))
-        {
-            if (requiredScopes.isEmpty())
-                requiredScopes = "bot";
-            else
-                requiredScopes += "+bot";
-        }
-        return this;
-    }
+//    @Nonnull
+//    @Override
+//    public JDA setRequiredScopes(@Nonnull Collection<String> scopes)
+//    {
+//        Checks.noneNull(scopes, "Scopes");
+//        this.requiredScopes = String.join("+", scopes);
+//        if (!requiredScopes.contains("bot"))
+//        {
+//            if (requiredScopes.isEmpty())
+//                requiredScopes = "bot";
+//            else
+//                requiredScopes += "+bot";
+//        }
+//        return this;
+//    }
 
     @Nonnull
     @Override

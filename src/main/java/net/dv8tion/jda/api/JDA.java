@@ -1703,12 +1703,12 @@ public interface JDA extends IGuildChannelContainer
      *
      * @return The current JDA instance
      */
-    @Nonnull
-    default JDA setRequiredScopes(@Nonnull String... scopes)
-    {
-        Checks.noneNull(scopes, "Scopes");
-        return setRequiredScopes(Arrays.asList(scopes));
-    }
+//    @Nonnull
+//    default JDA setRequiredScopes(@Nonnull String... scopes)
+//    {
+//        Checks.noneNull(scopes, "Scopes");
+//        return setRequiredScopes(Arrays.asList(scopes));
+//    }
 
     /**
      * Configures the required scopes applied to the {@link #getInviteUrl(Permission...)} and similar methods.
@@ -1722,8 +1722,8 @@ public interface JDA extends IGuildChannelContainer
      *
      * @return The current JDA instance
      */
-    @Nonnull
-    JDA setRequiredScopes(@Nonnull Collection<String> scopes);
+//    @Nonnull
+//    JDA setRequiredScopes(@Nonnull Collection<String> scopes);
 
     /**
      * Creates an authorization invite url for the currently logged in Bot-Account.

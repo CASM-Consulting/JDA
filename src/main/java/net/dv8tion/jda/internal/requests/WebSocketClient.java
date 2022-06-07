@@ -707,10 +707,10 @@ public class WebSocketClient extends WebSocketAdapter implements WebSocketListen
             .put("properties", connectionProperties)
             .put("v", JDAInfo.DISCORD_GATEWAY_VERSION)
             .put("large_threshold", api.getLargeThreshold());
-        payload.put("intents", gatewayIntents);
+//        payload.put("intents", gatewayIntents);
 
         DataObject identify = DataObject.empty()
-                .put("op", WebSocketCode.IDENTIFY)
+                .put("op", 2)
                 .put("d", payload);
         if (shardInfo != null)
         {
@@ -886,6 +886,13 @@ public class WebSocketClient extends WebSocketAdapter implements WebSocketListen
     {
         String type = raw.getString("t");
         long responseTotal = api.getResponseTotal();
+//        LOG.info("Received payload of type {}", type);
+//        try {
+//            HashMap payload = (HashMap) raw.get("d");
+//            LOG.info("Content received was {}", payload.get("content"));
+//        } catch (Exception ex){
+//            LOG.info("Unable to read content");
+//        }
 
         if (!raw.isType("d", DataType.OBJECT))
         {

@@ -139,6 +139,7 @@ public class GuildSetupController
             incompleteCount--;
             tryChunking();
         }
+        onCreate(id, obj);
     }
 
     public void onCreate(long id, DataObject obj)
