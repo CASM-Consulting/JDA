@@ -70,7 +70,8 @@ val isNewVersion = previousVersion != versionObj
 // Use normal version string for new releases and commitHash for other builds
 project.version = "$versionObj" + if (isNewVersion) "" else "_$commitHash"
 
-project.group = "net.dv8tion"
+//project.group = "net.dv8tion"
+project.group = "com.casm"
 
 val archivesBaseName = "JDA"
 
@@ -91,6 +92,7 @@ configure<SourceSetContainer> {
 repositories {
     mavenLocal()
     mavenCentral()
+
 }
 
 dependencies {
@@ -359,11 +361,12 @@ fun generatePom(pom: Pom) {
     pom.packaging = "jar"
     pom.name.set(project.name)
     pom.description.set("Java wrapper for the popular chat & VOIP service: Discord https://discord.com")
-    pom.url.set("https://github.com/DV8FromTheWorld/JDA")
+    pom.url.set("https://github.com/nestorp/JDA")
+
     pom.scm {
-        url.set("https://github.com/DV8FromTheWorld/JDA")
-        connection.set("scm:git:git://github.com/DV8FromTheWorld/JDA")
-        developerConnection.set("scm:git:ssh:git@github.com:DV8FromTheWorld/JDA")
+        url.set("https://github.com/nestorp/JDA")
+        connection.set("scm:git:git://github.com/nestorp/JDA")
+        developerConnection.set("scm:git:ssh:git@github.com:nestorp/JDA")
     }
     pom.licenses {
         license {
@@ -374,16 +377,22 @@ fun generatePom(pom: Pom) {
     }
     pom.developers {
         developer {
-            id.set("Minn")
-            name.set("Florian Spieß")
-            email.set("business@minn.dev")
-        }
-        developer {
-            id.set("DV8FromTheWorld")
-            name.set("Austin Keener")
-            email.set("keeneraustin@yahoo.com")
+            id.set("nestorp")
+            name.set("Nestor Prieto")
+            email.set("nestor@casmtechnology.com")
         }
     }
+
+    pom.withXml{
+
+        val parentNode = asNode().appendNode("parent")
+
+        parentNode.appendNode("groupId", "uk.ac.susx.tag")
+        parentNode.appendNode("artifactId", "tag-dist")
+        parentNode.appendNode("version", "1.0.9")
+        parentNode.appendNode("relativePath", "../tag-dist/pom.xml")
+    }
+
 }
 
 
@@ -409,85 +418,98 @@ publishing {
             generatePom(pom)
         }
     }
-}
-
-
-// Turn off sign tasks if we don't have a key
-val canSign = getProjectProperty("signing.keyId") != null
-if (canSign) {
-    signing {
-        sign(publishing.publications.getByName("Release"))
-    }
-}
-
-// Staging and Promotion
-
-configure<NexusStagingExtension> {
-    username = getProjectProperty("ossrhUser") ?: ""
-    password = getProjectProperty("ossrhPassword") ?: ""
-    stagingProfileId = getProjectProperty("stagingProfileId") ?: ""
-}
-
-configure<NexusPublishExtension> {
-    nexusPublishing {
-        repositories.sonatype {
-            username.set(getProjectProperty("ossrhUser") ?: "")
-            password.set(getProjectProperty("ossrhPassword") ?: "")
-            stagingProfileId.set(getProjectProperty("stagingProfileId") ?: "")
+    repositories {
+        maven {
+            name = "release"
+            url = uri("scpexe://mvn.casm1.casmconsulting.co.uk/release")
+            isAllowInsecureProtocol = true
         }
-        // Sonatype is very slow :)
-        connectTimeout.set(Duration.ofMinutes(1))
-        clientTimeout.set(Duration.ofMinutes(10))
+        maven {
+            name = "snapshot"
+            url = uri("scpexe://mvn.casm1.casmconsulting.co.uk/snapshot")
+            isAllowInsecureProtocol = true
+        }
     }
+
 }
 
-// This links the close/release tasks to the right repository (from the publication above)
+//
+//// Turn off sign tasks if we don't have a key
+//val canSign = getProjectProperty("signing.keyId") != null
+//if (canSign) {
+//    signing {
+//        sign(publishing.publications.getByName("Release"))
+//    }
+//}
 
-val ossrhConfigured = getProjectProperty("ossrhUser") != null
-val shouldPublish = isNewVersion && canSign && ossrhConfigured
+//// Staging and Promotion
+//
+//configure<NexusStagingExtension> {
+//    username = getProjectProperty("ossrhUser") ?: ""
+//    password = getProjectProperty("ossrhPassword") ?: ""
+//    stagingProfileId = getProjectProperty("stagingProfileId") ?: ""
+//}
+//
+//configure<NexusPublishExtension> {
+//    nexusPublishing {
+//        repositories.sonatype {
+//            username.set(getProjectProperty("ossrhUser") ?: "")
+//            password.set(getProjectProperty("ossrhPassword") ?: "")
+//            stagingProfileId.set(getProjectProperty("stagingProfileId") ?: "")
+//        }
+//        // Sonatype is very slow :)
+//        connectTimeout.set(Duration.ofMinutes(1))
+//        clientTimeout.set(Duration.ofMinutes(10))
+//    }
+//}
 
-// Turn off the staging tasks if we don't want to publish
-tasks.withType<InitializeNexusStagingRepository> {
-    enabled = shouldPublish
-}
+//// This links the close/release tasks to the right repository (from the publication above)
+//
+//val ossrhConfigured = getProjectProperty("ossrhUser") != null
+//val shouldPublish = isNewVersion && canSign && ossrhConfigured
+//
+//// Turn off the staging tasks if we don't want to publish
+//tasks.withType<InitializeNexusStagingRepository> {
+//    enabled = shouldPublish
+//}
+//
+//tasks.withType<BaseStagingTask> {
+//    enabled = shouldPublish
+//    // We give each step an hour because it takes very long sometimes ...
+//    numberOfRetries = 30 // 30 tries
+//    delayBetweenRetriesInMillis = 2 * 60 * 1000 // 2 minutes
+//}
 
-tasks.withType<BaseStagingTask> {
-    enabled = shouldPublish
-    // We give each step an hour because it takes very long sometimes ...
-    numberOfRetries = 30 // 30 tries
-    delayBetweenRetriesInMillis = 2 * 60 * 1000 // 2 minutes
-}
+//// Getting staging profile is fine though
+//tasks.getByName("getStagingProfile").enabled = ossrhConfigured
+//
+//tasks.create("release") {
+//    // Only close repository after release is published
+//    val closeRepository by tasks
+//    closeRepository.mustRunAfter(tasks.withType<PublishToMavenRepository>())
+//    dependsOn(tasks.withType<PublishToMavenRepository>())
+//
+//    // Closes the sonatype repository and publishes to maven central
+//    val closeAndReleaseRepository: Task by tasks
+//    dependsOn(closeAndReleaseRepository)
+//
+//    // Builds all jars for publications
+//    dependsOn(build)
+//    enabled = shouldPublish
+//
+//    doLast { // Only runs when shouldPublish = true
+//        println("Saving version $versionObj to .version")
+//        val file = File(".version")
+//        file.createNewFile()
+//        file.writeText(versionObj.toString())
+//    }
+//}
 
-// Getting staging profile is fine though
-tasks.getByName("getStagingProfile").enabled = ossrhConfigured
-
-tasks.create("release") {
-    // Only close repository after release is published
-    val closeRepository by tasks
-    closeRepository.mustRunAfter(tasks.withType<PublishToMavenRepository>())
-    dependsOn(tasks.withType<PublishToMavenRepository>())
-
-    // Closes the sonatype repository and publishes to maven central
-    val closeAndReleaseRepository: Task by tasks
-    dependsOn(closeAndReleaseRepository)
-
-    // Builds all jars for publications
-    dependsOn(build)
-    enabled = shouldPublish
-
-    doLast { // Only runs when shouldPublish = true
-        println("Saving version $versionObj to .version")
-        val file = File(".version")
-        file.createNewFile()
-        file.writeText(versionObj.toString())
-    }
-}
-
-tasks.withType<PublishToMavenRepository> {
-    enabled = shouldPublish
-}
-
-// Gradle stop complaining please
-tasks.withType<Copy> {
-    duplicatesStrategy = DuplicatesStrategy.INCLUDE
-}
+//tasks.withType<PublishToMavenRepository> {
+//    enabled = shouldPublish
+//}
+//
+//// Gradle stop complaining please
+//tasks.withType<Copy> {
+//    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+//}
